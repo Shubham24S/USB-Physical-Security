@@ -3,8 +3,10 @@ from tkinter import simpledialog, messagebox
 import sqlite3
 import bcrypt
 import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+import ctypes
+import winreg as reg
+import sys
+
 import pyotp
 import threading
 import time
@@ -36,37 +38,62 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS activity_log (
 conn.commit()
 
 # Function to send email notifications
-def send_notification(user_email, action):
-    msg = MIMEMultipart()
-    msg['From'] = EMAIL
-    msg['To'] = user_email
-    msg['Subject'] = 'USB Port Manager Notification'
-    body = f'Action: {action}\nTimestamp: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
-    msg.attach(MIMEText(body, 'plain'))
-    server = smtplib.SMTP('smtp.gmail.com', 587)  # Gmail SMTP server
-    server.starttls()
-    server.login(EMAIL, EMAIL_PASSWORD)
-    text = msg.as_string()
-    server.sendmail(EMAIL, user_email, text)
-    server.quit()
+
+def is_admin():
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        return False
+
+# Function to restart the script with admin privileges
+def restart_as_admin():
+    if not is_admin():
+        ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, __file__, None, 1)
+        sys.exit()
+
+def log_activity(user_id, action):
+    username = cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,)).fetchone()[0]
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    cursor.execute("INSERT INTO activity_log (user_id, action, timestamp) VALUES (?, ?, ?)", (user_id, action, timestamp))
+    conn.commit()
 
 # Function to disable USB ports
 def disable_usb():
-    # Implement USB disable functionality here
-    log_action("Disabled USB ports")
-    send_notification(logged_in_user[4], "Disabled USB ports")
+    global logged_in_user
+
+    # Check if a user is logged in
+    if logged_in_user:
+        # Prompt for the password to confirm action
+
+            try:
+                key = reg.OpenKey(reg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Services\USBSTOR", 0, reg.KEY_SET_VALUE)
+                reg.SetValueEx(key, "Start", 0, reg.REG_DWORD, 4)
+                reg.CloseKey(key)
+                messagebox.showinfo("Success", "USB ports have been disabled.", parent=main_window)
+                log_activity(logged_in_user[0], "Disabled USB ports")
+            except Exception as e:
+                messagebox.showerror("Error", str(e), parent=main_window)
+
+   
 
 # Function to enable USB ports
 def enable_usb():
     # Implement USB enable functionality here
-    log_action("Enabled USB ports")
-    send_notification(logged_in_user[4], "Enabled USB ports")
+    global logged_in_user
+    if logged_in_user:
+        try:
+            key = reg.OpenKey(reg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Services\USBSTOR", 0, reg.KEY_SET_VALUE)
+            reg.SetValueEx(key, "Start", 0, reg.REG_DWORD, 3)
+            reg.CloseKey(key)
+            messagebox.showinfo("Success", "USB ports have been enabled.", parent=main_window)
+            log_activity(logged_in_user[0], "Enabled USB ports")
+        except Exception as e:
+            messagebox.showerror("Error", str(e), parent=main_window)
+    else:
+        messagebox.showerror("Error", "You must be logged in to enable USB ports.", parent=main_window)
 
 # Function to log actions
-def log_action(action):
-    cursor.execute("INSERT INTO activity_log (user_id, action, timestamp) VALUES (?, ?, ?)",
-                   (logged_in_user[0], action, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-    conn.commit()
+
 
 # Function to check if user is logged in before disabling USB ports
 def check_login_and_disable_usb():
@@ -128,7 +155,7 @@ def create_login_signup_gui():
     footer = tk.Frame(login_signup_window, bg='#4d4d4d', height=30)
     footer.pack(side=tk.BOTTOM, fill=tk.X)
 
-    footer_label = tk.Label(footer, text="Developed by [Your Name]", bg='#4d4d4d', fg='white', font=('Arial', 12))
+    footer_label = tk.Label(footer, text="Developed by Team 15", bg='#4d4d4d', fg='white', font=('Arial', 12))
     footer_label.pack(pady=5)
 
     login_signup_window.mainloop()
@@ -162,7 +189,7 @@ def create_main_window():
 
     footer = tk.Frame(main_window, bg='#4d4d4d', height=30)
     footer.pack(side=tk.BOTTOM, fill=tk.X)
-    footer_label = tk.Label(footer, text="Developed by [Your Name]", bg='#4d4d4d', fg='white', font=('Arial', 12))
+    footer_label = tk.Label(footer, text="Developed by Team 15", bg='#4d4d4d', fg='white', font=('Arial', 12))
     footer_label.pack(pady=5)
 
     main_window.mainloop()
@@ -180,15 +207,15 @@ def schedule_usb_action(action, time_delay):
 
 # Function to handle two-factor authentication (2FA)
 def two_factor_auth():
-    totp = pyotp.TOTP('your_generated_base32_secret')  # Replace with your secure base32 secret
+    totp = pyotp.TOTP('CCDTFMUY7RZ3O3NEYS7GWQHZSYCFXITK')
     otp = totp.now()
     # Send OTP to user's email or phone
     # For simplicity, we'll just print it here
     print(f"Your OTP is: {otp}")
-    entered_otp = CustomDialog(main_window, "Two-Factor Authentication", "Enter the OTP sent to your email/phone:").result
+    entered_otp = CustomDialog(login_signup_window, "Two-Factor Authentication", "Enter the OTP sent to your email/phone:").result
     return entered_otp == otp
 
-# Function to handle user login
+
 def login():
     global logged_in_user
     username = CustomDialog(login_signup_window, "Login", "Enter your username:").result
@@ -239,4 +266,5 @@ class CustomDialog(simpledialog.Dialog):
 
 if __name__ == "__main__":
     logged_in_user = None
+    restart_as_admin()
     create_login_signup_gui()
