@@ -155,7 +155,7 @@ def create_login_signup_gui():
     footer = tk.Frame(login_signup_window, bg='#4d4d4d', height=30)
     footer.pack(side=tk.BOTTOM, fill=tk.X)
 
-    footer_label = tk.Label(footer, text="Developed by Team 15 ", bg='#4d4d4d', fg='white', font=('Arial', 12))
+    footer_label = tk.Label(footer, text="Developed by [Your Name]", bg='#4d4d4d', fg='white', font=('Arial', 12))
     footer_label.pack(pady=5)
 
     login_signup_window.mainloop()
@@ -189,7 +189,7 @@ def create_main_window():
 
     footer = tk.Frame(main_window, bg='#4d4d4d', height=30)
     footer.pack(side=tk.BOTTOM, fill=tk.X)
-    footer_label = tk.Label(footer, text="Developed by Team 15", bg='#4d4d4d', fg='white', font=('Arial', 12))
+    footer_label = tk.Label(footer, text="Developed by [Your Name]", bg='#4d4d4d', fg='white', font=('Arial', 12))
     footer_label.pack(pady=5)
 
     main_window.mainloop()
@@ -207,7 +207,7 @@ def schedule_usb_action(action, time_delay):
 
 # Function to handle two-factor authentication (2FA)
 def two_factor_auth():
-    totp = pyotp.TOTP('CCDTFMUY7RZ3O3NEYS7GWQHZSYCFXITK')
+    totp = pyotp.TOTP('your_generated_base32_secret') # Replace with your secure base32 secret
     otp = totp.now()
     # Send OTP to user's email or phone
     # For simplicity, we'll just print it here
